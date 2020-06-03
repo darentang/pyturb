@@ -1,10 +1,10 @@
 import numpy as np
 
 class FlightCon:
-     alt = None
-     P = None
-     T = None
-     M = None
+    alt = None
+    P = None
+    T = None
+    M = None
 
 class EngineStations:
     T = dict()
