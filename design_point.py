@@ -20,9 +20,15 @@ class EngineInputs:
     eta_cc = 0.992
     ram_recovery = 1
     bypass_ratio = 1
+    lhv = 0
+
+    fuel_air_ratio = 0
 
     gamma_c = 0
     gamma_h = 0
+
+    cph = 0
+    cpc = 0
 
     eta_type = 'isentropic'
 
@@ -50,6 +56,17 @@ class TurboJet:
         else:
             self.stations.T['3'] = self.stations.T['2']*(1 + (self.inputs.pi_c**(1/exp/self.inputs.eta_c)))
 
-        # Station 4
-        self.stations.P['4'] = self.stations.P['3']*(1-self.inputs.lambda_cc)
-        
+        # Combustion chamber
+        cc_exit_enthalpy = self.stations.T['4']*(1+self.inputs.fuel_air_ratio)*self.inputs.cph
+        cc_entry_enthalpy = self.statins.T['3']*self.inputs.cpc
+        cc_excess_enthalpy = self.inputs.eta_cc*self.inputs.lhv
+
+
+        # Compressor
+        compressor_power = self.inputs.cpc*(self.stations.T['3'] - self.stations.T['2'])
+
+        # Turbine
+        turbine_power = (1 + self.inputs.fuel_air_ratio)*self.inputs.cph*(self.stations.T['4']-self.stations.T['5'])
+
+        if self.inputs.eta_type == 'polytropic':
+            self.stations.P['5'] = 
