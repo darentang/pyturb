@@ -28,6 +28,7 @@ class FlightCon:
         mat = mat[:, 1:]
         self.T = np.interp(alt, elevation, mat[:, 0])
         self.P = np.interp(alt, elevation, mat[:, 1]) * 100
+        self.rho = np.interp(alt, elevation, mat[:, 2])
         a = np.interp(alt, elevation, mat[:, -1])
         self.V = M*a
 
@@ -96,7 +97,7 @@ class Engine:
         self.stations.T[station_out] = out_temp
 
         if self.inputs.eta_type == 'polytropic':
-            self.stations.P[station_out] = self.stations.P[station_in]*(self.stations.T[station_out]/self.stations.T[station_out])**(self.exp_h/self.inputs.eta_t)
+            self.stations.P[station_out] = self.stations.P[station_in]*(self.stations.T[station_out]/self.stations.T[station_in])**(self.exp_h/self.inputs.eta_t)
         else:
             self.stations.T[station_out+'s'] = self.stations.T[station_in] - (self.stations.T[station_in] - self.stations.T[station_out])/self.inputs.eta_t
             self.stations.P[station_out] = self.stations.P[station_in]*(self.stations.T[station_out+'s']/self.stations.T[station_out])**self.exp_h
@@ -135,9 +136,9 @@ class Engine:
             # Adapted
             self.stations.P[station_out+'_static'] = self.flightcon.P
             self.stations.T[station_out+'_static'] = self.stations.T[station_in]*(1/npr)**((gamma-1)/gamma)
-            M = np.sqrt(2/(gamma-1)*(npr)**((gamma-1)/gamma)-1)
-        
-        rho = self.stations.P[station_out+'_static']/(287*self.stations.T[station_out+'_static'])
+            M = np.sqrt(2/(gamma-1)*((npr)**((gamma-1)/gamma)-1))
+
+        rho = self.stations.P[station_out+'_static']*1000/(287*self.stations.T[station_out+'_static'])
         V = M*np.sqrt(gamma*287*self.stations.T[station_out+'_static'])
         A = m_dot/(rho*V)
 
@@ -214,6 +215,15 @@ class TurboJet(Engine):
         self.turbine('4', '5', self.inputs.tot)
 
         self.A9, self.V9 = self.nozzle('5', '9')
+
+    def thrust(self):
+        self.Fgross = self.inputs.m_dot*(1 + self.inputs.fuel_air_ratio)*self.V9\
+             + (self.stations.P['9_static']-self.flightcon.P)*self.A9
+        self.Dram = self.inputs.m_dot*self.flightcon.V
+        self.Fnet = self.Fgross - self.Dram
+
+        return self.Fnet
+             
 class TurboFanSepExhaust(Engine):
     def solve(self):
         bypass_mdot = self.inputs.m_dot*self.inputs.bypass_ratio
@@ -247,32 +257,3 @@ class TurboFanSepExhaust(Engine):
 
         # Bypass Nozzle
         self.A19, self.V19 = self.nozzle('5', '9', gamma=self.inputs.gamma_c, m_dot=bypass_mdot)
-
-if __name__ == '__main__':
-    # Inputs to the problem
-    inputs = EngineInputs()
-    inputs.pi_c = 7
-    inputs.tit = 1200
-    inputs.tot = 800
-    inputs.eta_c = 0.85
-    inputs.eta_t = 0.85
-    inputs.eta_m = 0.9
-    inputs.eta_cc = 0.99
-    inputs.lambda_cc = 0.05
-    inputs.m_dot = 2.75
-    inputs.eta_type = 'polytropic'
-
-    # Unknowns
-    inputs.symbolise('fuel_air_ratio')
-    inputs.symbolise('power_offtake')
-
-    # Flight conditions
-    flightcon = FlightCon(1828.8, 0.3)
-    
-    # Set up cycle calcs and solve
-    engine = TurboJet(inputs, flightcon)
-    engine.solve()
-
-    print(engine.stations.T)
-    print(engine.stations.P)
-    print(engine.inputs.power_offtake)
